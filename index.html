@@ -2,22 +2,24 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>전국 등산 동호회 관리</title>
+    <title>산우리 등산 동호회 관리</title>
     <style>
-        /* 기존 스타일 동일 + 추가 */
-        body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; padding: 20px; }
+        body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; padding: 20px; margin: 0; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .tabs { display: flex; margin-bottom: 20px; border-radius: 8px; overflow: hidden; }
-        .tab-btn { flex: 1; padding: 15px; border: none; cursor: pointer; background: #e4e6eb; font-weight: bold; }
+        .tabs { display: flex; margin-bottom: 20px; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; }
+        .tab-btn { flex: 1; padding: 15px; border: none; cursor: pointer; background: #f8f9fa; font-weight: bold; font-size: 16px; }
         .tab-btn.active { background: #1877f2; color: white; }
-        .content { display: none; }
+        .content { display: none; padding: 10px; }
         .content.active { display: block; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: center; }
-        .level-badge { background: #f0f2f5; padding: 4px 8px; border-radius: 10px; font-size: 0.85em; font-weight: bold; }
-        .admin-lock { text-align: center; padding: 50px; }
-        input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        .btn-save { background: #28a745; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; }
+        th { background: #f8f9fa; }
+        .level-badge { background: #e7f3ff; color: #1877f2; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; }
+        .admin-lock { text-align: center; padding: 50px; border: 1px dashed #ccc; border-radius: 10px; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        .btn-save { background: #28a745; color: white; border: none; padding: 14px; width: 100%; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-save:hover { opacity: 0.9; }
+        .loading { text-align: center; color: #666; padding: 20px; }
     </style>
 </head>
 <body>
@@ -30,10 +32,12 @@
 
     <div id="dashboard" class="content active">
         <h2>🏔️ 회원 등산 등급표</h2>
-        <div style="text-align: right;">
-            <select id="qSelect" onchange="renderUI()" style="width:150px;"></select>
+        <div style="text-align: right; margin-bottom: 10px;">
+            <label>분기 선택: </label>
+            <select id="qSelect" onchange="renderUI()" style="width:150px; display:inline-block;"></select>
         </div>
-        <table id="mainTable">
+        <div id="loader" class="loading">데이터를 불러오는 중...</div>
+        <table id="mainTable" style="display:none;">
             <thead>
                 <tr><th>회원명</th><th>레벨(총합)</th><th>분기 횟수</th></tr>
             </thead>
@@ -44,63 +48,99 @@
     <div id="management" class="content">
         <div id="lockScreen" class="admin-lock">
             <h3>관리자 암호를 입력하세요</h3>
-            <input type="password" id="adminPw" placeholder="Password">
-            <button class="btn-save" onclick="unlockAdmin()" style="margin-top:10px;">접속</button>
+            <input type="password" id="adminPw" placeholder="비밀번호 입력">
+            <button class="btn-save" onclick="unlockAdmin()" style="margin-top:10px;">접속하기</button>
         </div>
         
         <div id="adminContent" style="display:none;">
-            <h3>🆕 회원 등록</h3>
-            <input type="text" id="mName" placeholder="이름">
-            <input type="date" id="mDate">
-            <button class="btn-save" onclick="apiCall('addMember')">등록하기</button>
+            <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:20px;">
+                <h3 style="margin-top:0;">🆕 신규 회원 등록</h3>
+                <input type="text" id="mName" placeholder="회원 이름">
+                <input type="date" id="mDate">
+                <button class="btn-save" onclick="handleApi('addMember')">회원 등록</button>
+            </div>
 
-            <hr>
-            <h3>📅 등산 기록 추가</h3>
-            <select id="mSelect"></select>
-            <input type="date" id="hDate">
-            <button class="btn-save" style="background:#007bff;" onclick="apiCall('addHike')">기록 저장</button>
+            <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:20px;">
+                <h3 style="margin-top:0;">📅 등산 기록 추가</h3>
+                <select id="mSelect"><option value="">회원 선택</option></select>
+                <input type="date" id="hDate">
+                <button class="btn-save" style="background:#007bff;" onclick="handleApi('addHike')">기록 저장</button>
+            </div>
 
-            <hr>
-            <h3>🗑️ 회원 삭제</h3>
-            <select id="dSelect"></select>
-            <button class="btn-save" style="background:#dc3545;" onclick="apiCall('deleteMember')">회원 삭제</button>
+            <div style="background:#fff5f5; padding:15px; border-radius:8px; border:1px solid #ffcccc;">
+                <h3 style="margin-top:0; color:#c0392b;">🗑️ 회원 삭제</h3>
+                <select id="dSelect"><option value="">삭제할 회원 선택</option></select>
+                <button class="btn-save" style="background:#dc3545;" onclick="handleApi('deleteMember')">회원 삭제</button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
+    // ⚠️ 주의: 반드시 본인의 구글 웹 앱 URL로 변경하세요!
     const API_URL = "https://script.google.com/macros/s/AKfycbySsFZxHczWCZUQvm17BL99EIK6gTHDW0kcz8ej50AOd9H7iG8ZKRAw9dPVTaV0TuAz/exec"; 
-    const ADMIN_PASSWORD = "1229"; // 사용할 비밀번호 설정
+    const ADMIN_PASSWORD = "1229"; // 비밀번호 설정
 
     let db = { members: [], hikes: [] };
 
-    async function loadData() {
-        // 실제 운영시에는 Google Apps Script 연동 로직이 들어갑니다.
-        // 여기서는 구조를 보여드리기 위해 LocalStorage를 유지하되 API 호출 시뮬레이션을 합니다.
-        const res = await fetch(API_URL + "?action=read");
-        const json = await res.json();
-        // ... 데이터 매핑 로직
-    }
+    // 페이지 로드 시 데이터 읽기
+    window.onload = loadData;
 
-    // 관리자 잠금 해제
-    function unlockAdmin() {
-        const pw = document.getElementById('adminPw').value;
-        if(pw === ADMIN_PASSWORD) {
-            document.getElementById('lockScreen').style.display = 'none';
-            document.getElementById('adminContent').style.display = 'block';
-        } else {
-            alert("비밀번호가 틀렸습니다.");
+    async function loadData() {
+        try {
+            const response = await fetch(`${API_URL}?action=read`);
+            db = await response.json();
+            initQuarterSelect();
+            updateMemberDropdowns();
+            renderUI();
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('mainTable').style.display = 'table';
+        } catch (e) {
+            console.error(e);
+            alert("데이터를 불러오는데 실패했습니다. API URL과 설정을 확인하세요.");
         }
     }
 
-    function showTab(id) {
-        document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        event.currentTarget.classList.add('active');
+    async function handleApi(action) {
+        let payload = { action: action };
+
+        if (action === 'addMember') {
+            const name = document.getElementById('mName').value;
+            const date = document.getElementById('mDate').value;
+            if(!name || !date) return alert("정보를 입력하세요.");
+            payload = { ...payload, id: Date.now(), name: name, joinDate: date };
+        } 
+        else if (action === 'addHike') {
+            const mId = document.getElementById('mSelect').value;
+            const date = document.getElementById('hDate').value;
+            if(!mId || !date) return alert("회원과 날짜를 선택하세요.");
+            payload = { ...payload, memberId: mId, date: date };
+        }
+        else if (action === 'deleteMember') {
+            const mId = document.getElementById('dSelect').value;
+            if(!mId || !confirm("정말 삭제하시겠습니까?")) return;
+            payload = { ...payload, id: mId };
+        }
+
+        // 버튼 비활성화 (중복 클릭 방지)
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerText = "처리 중...";
+
+        try {
+            await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            alert("완료되었습니다.");
+            location.reload(); // 데이터 갱신을 위해 새로고침
+        } catch (e) {
+            alert("오류가 발생했습니다.");
+            btn.disabled = false;
+            btn.innerText = "다시 시도";
+        }
     }
 
-    // 등급 로직 (요청하신 별똥별, 행성계 등 적용)
     function getLevel(n) {
         if (n >= 50) return '🌌 행성계';
         if (n >= 45) return '🌠 별똥별';
@@ -116,7 +156,56 @@
         return '🌱 새싹';
     }
 
-    // 데이터 저장/불러오기 등의 함수들...
+    function getQuarter(dateStr) {
+        const d = new Date(dateStr);
+        return `${d.getFullYear()}년 ${Math.ceil((d.getMonth()+1)/3)}분기`;
+    }
+
+    function initQuarterSelect() {
+        const qs = new Set();
+        qs.add(getQuarter(new Date()));
+        db.hikes.forEach(h => qs.add(getQuarter(h.date)));
+        const select = document.getElementById('qSelect');
+        Array.from(qs).sort().reverse().forEach(q => {
+            select.innerHTML += `<option value="${q}">${q}</option>`;
+        });
+    }
+
+    function updateMemberDropdowns() {
+        const mSelect = document.getElementById('mSelect');
+        const dSelect = document.getElementById('dSelect');
+        db.members.forEach(m => {
+            const opt = `<option value="${m.id}">${m.name}</option>`;
+            mSelect.innerHTML += opt;
+            dSelect.innerHTML += opt;
+        });
+    }
+
+    function renderUI() {
+        const targetQ = document.getElementById('qSelect').value;
+        const tbody = document.getElementById('memberList');
+        tbody.innerHTML = "";
+
+        db.members.forEach(m => {
+            const total = db.hikes.filter(h => String(h.memberId) === String(m.id)).length;
+            const qCount = db.hikes.filter(h => String(h.memberId) === String(m.id) && getQuarter(h.date) === targetQ).length;
+            tbody.innerHTML += `<tr><td>${m.name}</td><td><span class="level-badge">${getLevel(total)}</span> (${total}회)</td><td style="color:red; font-weight:bold;">${qCount}회</td></tr>`;
+        });
+    }
+
+    function unlockAdmin() {
+        if(document.getElementById('adminPw').value === ADMIN_PASSWORD) {
+            document.getElementById('lockScreen').style.display = 'none';
+            document.getElementById('adminContent').style.display = 'block';
+        } else alert("비번 오류");
+    }
+
+    function showTab(id) {
+        document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
 </script>
 </body>
 </html>
