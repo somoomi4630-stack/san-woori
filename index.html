@@ -6,13 +6,13 @@
     <title>산우리 등산 동호회 관리</title>
     <style>
         body { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background-color: #f0f2f5; padding: 20px; margin: 0; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .tabs { display: flex; margin-bottom: 20px; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; }
         .tab-btn { flex: 1; padding: 15px; border: none; cursor: pointer; background: #f8f9fa; font-weight: bold; font-size: 16px; transition: 0.3s; }
         .tab-btn.active { background: #1877f2; color: white; }
         .content { display: none; padding: 10px; }
         .content.active { display: block; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
         th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: center; }
         th { background: #f8f9fa; color: #333; }
         .level-badge { background: #e7f3ff; color: #1877f2; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; white-space: nowrap; }
@@ -20,8 +20,8 @@
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
         .btn-save { background: #28a745; color: white; border: none; padding: 14px; width: 100%; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 5px; }
         .btn-save:disabled { background: #ccc; cursor: not-allowed; }
+        .d-day-urgent { color: #e74c3c; font-weight: bold; }
         .loading-text { text-align: center; color: #666; padding: 20px; font-style: italic; }
-        hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
     </style>
 </head>
 <body>
@@ -45,6 +45,7 @@
                     <th>회원명</th>
                     <th>레벨(총합)</th>
                     <th>분기 횟수</th>
+                    <th>남은 날짜</th>
                 </tr>
             </thead>
             <tbody id="memberList"></tbody>
@@ -54,30 +55,28 @@
     <div id="management" class="content">
         <div id="lockScreen" class="admin-lock">
             <h3>관리자 암호를 입력하세요</h3>
-            <p style="color:#888; font-size:13px;">회원 등록 및 삭제를 위해 로그인이 필요합니다.</p>
             <input type="password" id="adminPw" placeholder="비밀번호 입력" onkeypress="if(event.keyCode==13) unlockAdmin()">
             <button class="btn-save" onclick="unlockAdmin()" style="margin-top:10px; background:#1877f2;">접속하기</button>
         </div>
         
         <div id="adminContent" style="display:none;">
             <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #eee;">
-                <h3 style="margin-top:0; color:#2c3e50;">🆕 신규 회원 등록</h3>
+                <h3>🆕 신규 회원 등록</h3>
                 <input type="text" id="mName" placeholder="회원 이름 입력">
                 <input type="date" id="mDate">
                 <button id="btnAddMember" class="btn-save" onclick="handleApi('addMember')">회원 추가 완료</button>
             </div>
 
             <div style="background:#f8f9fa; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #eee;">
-                <h3 style="margin-top:0; color:#2c3e50;">📅 등산 기록 추가</h3>
+                <h3>📅 등산 기록 추가</h3>
                 <select id="mSelect"><option value="">회원을 선택하세요</option></select>
                 <input type="date" id="hDate">
                 <button id="btnAddHike" class="btn-save" style="background:#007bff;" onclick="handleApi('addHike')">등산 기록 저장</button>
             </div>
 
             <div style="background:#fff5f5; padding:15px; border-radius:8px; border:1px solid #ffcccc;">
-                <h3 style="margin-top:0; color:#c0392b;">🗑️ 회원 삭제</h3>
-                <p style="font-size:12px; color:#e74c3c; margin-top:-5px;">* 해당 회원의 모든 기록이 함께 삭제됩니다.</p>
-                <select id="dSelect"><option value="">삭제할 회원을 선택하세요</option></select>
+                <h3 style="color:#c0392b;">🗑️ 회원 삭제</h3>
+                <select id="dSelect"><option value="">삭제할 회원 선택</option></select>
                 <button id="btnDelMember" class="btn-save" style="background:#dc3545;" onclick="handleApi('deleteMember')">선택 회원 영구 삭제</button>
             </div>
         </div>
@@ -85,40 +84,33 @@
 </div>
 
 <script>
-    // ⚠️ [중요] 본인의 구글 웹 앱 URL을 아래에 넣으세요!
     const API_URL = "https://script.google.com/macros/s/AKfycbySsFZxHczWCZUQvm17BL99EIK6gTHDW0kcz8ej50AOd9H7iG8ZKRAw9dPVTaV0TuAz/exec"; 
-    const ADMIN_PASSWORD = "1229"; // 관리자 비밀번호
+    const ADMIN_PASSWORD = "1229"; 
 
     let db = { members: [], hikes: [] };
 
-    // 페이지 시작 시 실행
     window.onload = async () => {
-        // 오늘 날짜로 기본 세팅
         const today = new Date().toISOString().substring(0, 10);
         document.getElementById('mDate').value = today;
         document.getElementById('hDate').value = today;
         await loadData();
     };
 
-    // 서버에서 데이터 불러오기
     async function loadData() {
         try {
             const response = await fetch(`${API_URL}?action=read`);
             db = await response.json();
-            
-            initQuarterSelect();      // 분기 목록 생성
-            updateMemberDropdowns();  // 관리자 메뉴 드롭다운 갱신
-            renderUI();               // 테이블 그리기
-            
+            initQuarterSelect();
+            updateMemberDropdowns();
+            renderUI();
             document.getElementById('loader').style.display = 'none';
             document.getElementById('mainTable').style.display = 'table';
         } catch (e) {
             console.error(e);
-            alert("서버 연결 실패! API URL을 확인하세요.");
+            alert("서버 연결 실패!");
         }
     }
 
-    // 서버에 데이터 보내기 (추가/삭제)
     async function handleApi(action) {
         let payload = { action: action };
         const btn = event.target;
@@ -127,50 +119,33 @@
         if (action === 'addMember') {
             const name = document.getElementById('mName').value;
             const date = document.getElementById('mDate').value;
-            if(!name || !date) return alert("이름과 가입일을 입력해주세요.");
+            if(!name || !date) return alert("입력 오류");
             payload = { ...payload, id: Date.now(), name: name, joinDate: date };
         } 
         else if (action === 'addHike') {
             const mId = document.getElementById('mSelect').value;
             const date = document.getElementById('hDate').value;
-            if(!mId || !date) return alert("회원과 날짜를 선택해주세요.");
+            if(!mId || !date) return alert("입력 오류");
             payload = { ...payload, memberId: mId, date: date };
         }
         else if (action === 'deleteMember') {
             const mId = document.getElementById('dSelect').value;
-            if(!mId || !confirm("정말 삭제하시겠습니까? 관련 기록이 모두 사라집니다.")) return;
+            if(!mId || !confirm("정말 삭제하시겠습니까?")) return;
             payload = { ...payload, id: mId };
         }
 
-        // 버튼 상태 변경
         btn.disabled = true;
         btn.innerText = "처리 중...";
 
         try {
-            await fetch(API_URL, {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
-            
-            alert("성공적으로 처리되었습니다.");
-
-            // 입력 필드 초기화
-            if (action === 'addMember') {
-                document.getElementById('mName').value = "";
-            }
-
-            // [핵심] 로그인 유지하며 데이터만 갱신
+            await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+            alert("완료되었습니다.");
+            if (action === 'addMember') document.getElementById('mName').value = "";
             await loadData(); 
-            
-        } catch (e) {
-            alert("연결 오류가 발생했습니다.");
-        } finally {
-            btn.disabled = false;
-            btn.innerText = originalText;
-        }
+        } catch (e) { alert("오류 발생"); }
+        finally { btn.disabled = false; btn.innerText = originalText; }
     }
 
-    // 레벨 계산 로직
     function getLevel(n) {
         if (n >= 50) return '🌌 행성계';
         if (n >= 45) return '🌠 별똥별';
@@ -186,40 +161,82 @@
         return '🌱 새싹';
     }
 
-    // 분기 텍스트 계산
     function getQuarter(dateStr) {
         const d = new Date(dateStr);
         return `${d.getFullYear()}년 ${Math.ceil((d.getMonth()+1)/3)}분기`;
     }
 
-    // 분기 선택창 채우기
+    // D-Day 계산 함수
+    function calculateDDay(memberId, joinDate) {
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        
+        // 해당 회원의 등산 기록 필터링 및 정렬
+        const memberHikes = db.hikes
+            .filter(h => String(h.memberId) === String(memberId))
+            .map(h => new Date(h.date))
+            .sort((a, b) => b - a); // 최신순
+
+        let targetDate;
+        if (memberHikes.length === 0) {
+            // 기록 없는 경우: 현재 날짜 + 31일
+            targetDate = new Date(today);
+            targetDate.setDate(targetDate.getDate() + 31);
+        } else {
+            // 기록 있는 경우: 마지막 등산일 + 122일
+            const lastHike = memberHikes[0];
+            targetDate = new Date(lastHike);
+            targetDate.setDate(targetDate.getDate() + 122);
+        }
+
+        const diffTime = targetDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        return diffDays;
+    }
+
+    function renderUI() {
+        const targetQ = document.getElementById('qSelect').value;
+        const tbody = document.getElementById('memberList');
+        tbody.innerHTML = "";
+
+        db.members.forEach(m => {
+            const total = db.hikes.filter(h => String(h.memberId) === String(m.id)).length;
+            const qCount = db.hikes.filter(h => String(h.memberId) === String(m.id) && getQuarter(h.date) === targetQ).length;
+            
+            // D-Day 계산
+            const dDay = calculateDDay(m.id, m.joinDate);
+            const dDayClass = dDay <= 7 ? 'd-day-urgent' : '';
+            const dDayText = dDay >= 0 ? `D-${dDay}` : `D+${Math.abs(dDay)} (경과)`;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td style="font-weight:bold;">${m.name}</td>
+                    <td><span class="level-badge">${getLevel(total)}</span> <br><small style="color:#888">(${total}회)</small></td>
+                    <td style="font-weight:bold;">${qCount}회</td>
+                    <td class="${dDayClass}">${dDayText}</td>
+                </tr>`;
+        });
+    }
+
     function initQuarterSelect() {
         const select = document.getElementById('qSelect');
-        const currentVal = select.value; // 현재 선택값 유지용
-        
+        const currentVal = select.value;
         const qs = new Set();
         qs.add(getQuarter(new Date()));
         db.hikes.forEach(h => qs.add(getQuarter(h.date)));
-        
         select.innerHTML = "";
         Array.from(qs).sort().reverse().forEach(q => {
             select.innerHTML += `<option value="${q}">${q}</option>`;
         });
-        
         if(currentVal) select.value = currentVal;
     }
 
-    // 관리자 메뉴의 회원 목록 드롭다운 업데이트
     function updateMemberDropdowns() {
         const mSelect = document.getElementById('mSelect');
         const dSelect = document.getElementById('dSelect');
-        
-        const defaultM = '<option value="">회원 선택</option>';
-        const defaultD = '<option value="">삭제할 회원 선택</option>';
-        
-        mSelect.innerHTML = defaultM;
-        dSelect.innerHTML = defaultD;
-
+        mSelect.innerHTML = '<option value="">회원 선택</option>';
+        dSelect.innerHTML = '<option value="">삭제할 회원 선택</option>';
         db.members.forEach(m => {
             const opt = `<option value="${m.id}">${m.name}</option>`;
             mSelect.innerHTML += opt;
@@ -227,39 +244,13 @@
         });
     }
 
-    // 현황판 테이블 그리기
-    function renderUI() {
-        const targetQ = document.getElementById('qSelect').value;
-        const tbody = document.getElementById('memberList');
-        tbody.innerHTML = "";
-
-        // 회원별로 돌면서 횟수 계산
-        db.members.forEach(m => {
-            const total = db.hikes.filter(h => String(h.memberId) === String(m.id)).length;
-            const qCount = db.hikes.filter(h => String(h.memberId) === String(m.id) && getQuarter(h.date) === targetQ).length;
-            
-            tbody.innerHTML += `
-                <tr>
-                    <td style="font-weight:bold;">${m.name}</td>
-                    <td><span class="level-badge">${getLevel(total)}</span> <br><small style="color:#888">(${total}회)</small></td>
-                    <td style="color:#e74c3c; font-weight:bold; font-size:1.1em;">${qCount}회</td>
-                </tr>`;
-        });
-    }
-
-    // 관리자 로그인
     function unlockAdmin() {
-        const pw = document.getElementById('adminPw').value;
-        if(pw === ADMIN_PASSWORD) {
+        if(document.getElementById('adminPw').value === ADMIN_PASSWORD) {
             document.getElementById('lockScreen').style.display = 'none';
             document.getElementById('adminContent').style.display = 'block';
-        } else {
-            alert("비밀번호가 올바르지 않습니다.");
-            document.getElementById('adminPw').value = "";
-        }
+        } else { alert("비번 오류"); }
     }
 
-    // 탭 전환
     function showTab(id) {
         document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -267,9 +258,7 @@
         if(id === 'dashboard') {
             document.getElementById('tab-dash').classList.add('active');
             renderUI();
-        } else {
-            document.getElementById('tab-admin').classList.add('active');
-        }
+        } else { document.getElementById('tab-admin').classList.add('active'); }
     }
 </script>
 </body>
