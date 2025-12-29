@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>전국 등산 동호회 관리</title>
+    <style>
+        /* 기존 스타일 동일 + 추가 */
+        body { font-family: 'Apple SD Gothic Neo', sans-serif; background-color: #f0f2f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .tabs { display: flex; margin-bottom: 20px; border-radius: 8px; overflow: hidden; }
+        .tab-btn { flex: 1; padding: 15px; border: none; cursor: pointer; background: #e4e6eb; font-weight: bold; }
+        .tab-btn.active { background: #1877f2; color: white; }
+        .content { display: none; }
+        .content.active { display: block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: center; }
+        .level-badge { background: #f0f2f5; padding: 4px 8px; border-radius: 10px; font-size: 0.85em; font-weight: bold; }
+        .admin-lock { text-align: center; padding: 50px; }
+        input, select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .btn-save { background: #28a745; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('dashboard')">📊 실시간 현황</button>
+        <button class="tab-btn" onclick="showTab('management')">🔐 관리자 설정</button>
+    </div>
+
+    <div id="dashboard" class="content active">
+        <h2>🏔️ 회원 등산 등급표</h2>
+        <div style="text-align: right;">
+            <select id="qSelect" onchange="renderUI()" style="width:150px;"></select>
+        </div>
+        <table id="mainTable">
+            <thead>
+                <tr><th>회원명</th><th>레벨(총합)</th><th>분기 횟수</th></tr>
+            </thead>
+            <tbody id="memberList"></tbody>
+        </table>
+    </div>
+
+    <div id="management" class="content">
+        <div id="lockScreen" class="admin-lock">
+            <h3>관리자 암호를 입력하세요</h3>
+            <input type="password" id="adminPw" placeholder="Password">
+            <button class="btn-save" onclick="unlockAdmin()" style="margin-top:10px;">접속</button>
+        </div>
+        
+        <div id="adminContent" style="display:none;">
+            <h3>🆕 회원 등록</h3>
+            <input type="text" id="mName" placeholder="이름">
+            <input type="date" id="mDate">
+            <button class="btn-save" onclick="apiCall('addMember')">등록하기</button>
+
+            <hr>
+            <h3>📅 등산 기록 추가</h3>
+            <select id="mSelect"></select>
+            <input type="date" id="hDate">
+            <button class="btn-save" style="background:#007bff;" onclick="apiCall('addHike')">기록 저장</button>
+
+            <hr>
+            <h3>🗑️ 회원 삭제</h3>
+            <select id="dSelect"></select>
+            <button class="btn-save" style="background:#dc3545;" onclick="apiCall('deleteMember')">회원 삭제</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbySsFZxHczWCZUQvm17BL99EIK6gTHDW0kcz8ej50AOd9H7iG8ZKRAw9dPVTaV0TuAz/exec"; 
+    const ADMIN_PASSWORD = "1229"; // 사용할 비밀번호 설정
+
+    let db = { members: [], hikes: [] };
+
+    async function loadData() {
+        // 실제 운영시에는 Google Apps Script 연동 로직이 들어갑니다.
+        // 여기서는 구조를 보여드리기 위해 LocalStorage를 유지하되 API 호출 시뮬레이션을 합니다.
+        const res = await fetch(API_URL + "?action=read");
+        const json = await res.json();
+        // ... 데이터 매핑 로직
+    }
+
+    // 관리자 잠금 해제
+    function unlockAdmin() {
+        const pw = document.getElementById('adminPw').value;
+        if(pw === ADMIN_PASSWORD) {
+            document.getElementById('lockScreen').style.display = 'none';
+            document.getElementById('adminContent').style.display = 'block';
+        } else {
+            alert("비밀번호가 틀렸습니다.");
+        }
+    }
+
+    function showTab(id) {
+        document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
+
+    // 등급 로직 (요청하신 별똥별, 행성계 등 적용)
+    function getLevel(n) {
+        if (n >= 50) return '🌌 행성계';
+        if (n >= 45) return '🌠 별똥별';
+        if (n >= 40) return '💫 타원별';
+        if (n >= 35) return '🌟 빛별';
+        if (n >= 30) return '⭐️ 별';
+        if (n >= 25) return '🌕 달';
+        if (n >= 20) return '☀️ 해';
+        if (n >= 15) return '🌈 무지개';
+        if (n >= 10) return '⛰️ 산';
+        if (n >= 5)  return '🌳 나무';
+        if (n >= 3)  return '🌿 풀잎';
+        return '🌱 새싹';
+    }
+
+    // 데이터 저장/불러오기 등의 함수들...
+</script>
+</body>
+</html>
