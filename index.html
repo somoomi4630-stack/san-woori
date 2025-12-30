@@ -215,6 +215,7 @@
     }
 
     // --- [NEW] 그리드 렌더링 함수 ---
+   // --- [수정된] 그리드 렌더링 함수 ---
     function renderHikeGrid(memberId) {
         const grid = document.getElementById('hikeGrid');
         if (!memberId) {
@@ -222,12 +223,11 @@
             return;
         }
         
-        // 해당 회원의 기록 필터링
         const myHikes = db.hikes
             .filter(h => String(h.memberId) === String(memberId))
             .map(h => {
                 let d = new Date(h.date);
-                // 날짜 오류 처리
+                // 날짜 인식 보정 (점 포함 형식 등)
                 if(isNaN(d.getTime())) {
                     let str = String(h.date).replace(/\./g, '-').replace(/\s/g, '');
                     d = new Date(str);
@@ -235,7 +235,7 @@
                 return d;
             })
             .filter(d => !isNaN(d.getTime()))
-            .sort((a, b) => b - a); // 최신순
+            .sort((a, b) => b - a);
 
         if(myHikes.length === 0) {
             grid.style.display = 'block';
@@ -247,32 +247,31 @@
         grid.innerHTML = "";
 
         myHikes.forEach(dateObj => {
-            // YY.MM.DD 형식 변환
             const yy = String(dateObj.getFullYear()).slice(2);
             const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
             const dd = String(dateObj.getDate()).padStart(2, '0');
-            const dateStr = `${yy}.${mm}.${dd}`;
-            const fullDateStr = dateObj.toISOString().substring(0, 10); // YYYY-MM-DD
+            
+            const dateStr = `${yy}.${mm}.${dd}`; // 화면 표시용 (25.12.30)
+            const fullDateStr = `${dateObj.getFullYear()}-${mm}-${dd}`; // 서버 전송용 (2025-12-30)
 
             const item = document.createElement('div');
             item.className = 'hike-item';
             item.innerText = dateStr;
             item.onclick = () => {
-                // 클릭 시 수정/삭제 메뉴
-                const choice = prompt(`[${dateStr}] 기록 선택\n\n1. 수정: 새로운 날짜를 입력 (YYYY-MM-DD)\n2. 삭제: "삭제" 라고 입력`, fullDateStr);
+                const choice = prompt(`[${dateStr}] 기록 선택\n\n1. 수정: 새로운 날짜 입력 (예: 2025-01-01)\n2. 삭제: "삭제" 입력`, fullDateStr);
                 
-                if (choice === null) return; // 취소
+                if (choice === null) return;
                 
                 if (choice.trim() === "삭제") {
                     if(confirm("정말 이 기록을 삭제하시겠습니까?")) {
                         handleApi('deleteHike', { memberId: memberId, date: fullDateStr });
                     }
                 } else {
-                    // 날짜 형식 체크 (간단)
+                    // 날짜 형식 유효성 검사
                     if(choice.match(/^\d{4}-\d{2}-\d{2}$/)) {
                         handleApi('updateHike', { memberId: memberId, oldDate: fullDateStr, newDate: choice });
                     } else {
-                        alert("날짜 형식이 올바르지 않습니다. (예: 2025-01-01)");
+                        alert("날짜 형식이 올바르지 않습니다. (YYYY-MM-DD)");
                     }
                 }
             };
