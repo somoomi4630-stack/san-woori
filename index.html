@@ -15,26 +15,32 @@
         
         /* 테이블 스타일 */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
-        th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: center; }
+        th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: center; vertical-align: middle; }
         th { background: #f8f9fa; color: #333; font-weight: bold; }
         
         /* 뱃지 및 레벨 스타일 */
         .level-badge { background: #e7f3ff; color: #1877f2; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; white-space: nowrap; }
         .level-text { font-size: 0.85em; color: #666; margin-top: 4px; display: block; }
         
+        /* [NEW] 순위 뱃지 스타일 */
+        .rank-badge { display: block; font-size: 0.85em; font-weight: bold; margin-bottom: 4px; }
+        .rank-1 { color: #d4af37; text-shadow: 0 0 1px rgba(212, 175, 55, 0.5); } /* 금색 */
+        .rank-2 { color: #7f8c8d; } /* 은색 */
+        .rank-3 { color: #cd7f32; } /* 동색 */
+
         .admin-lock { text-align: center; padding: 50px; border: 1px dashed #ccc; border-radius: 10px; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
         .btn-save { background: #28a745; color: white; border: none; padding: 14px; width: 100%; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 5px; }
         .d-day-urgent { color: #e74c3c; font-weight: bold; }
         .loading-text { text-align: center; color: #666; padding: 20px; }
 
-        /* [NEW] 등산 기록 수정용 그리드 스타일 */
+        /* 등산 기록 수정용 그리드 스타일 */
         .hike-grid-container {
             display: grid;
-            grid-template-columns: repeat(4, 1fr); /* 4열 */
+            grid-template-columns: repeat(4, 1fr);
             gap: 8px;
-            max-height: 250px; /* 대략 5행 높이 */
-            overflow-y: auto; /* 스크롤바 생성 */
+            max-height: 250px;
+            overflow-y: auto;
             padding: 10px;
             border: 1px solid #eee;
             border-radius: 8px;
@@ -54,12 +60,6 @@
         .hike-item:hover {
             background: #e2e6ea;
             border-color: #adb5bd;
-        }
-        .hike-item.selected {
-            background: #cce5ff;
-            color: #004085;
-            border-color: #b8daff;
-            font-weight: bold;
         }
     </style>
 </head>
@@ -82,7 +82,8 @@
             <thead>
                 <tr>
                     <th style="width:25%">회원명</th>
-                    <th style="width:25%">레벨(Lv)</th> <th style="width:25%">분기 횟수</th>
+                    <th style="width:25%">레벨(Lv)</th>
+                    <th style="width:25%">분기 횟수</th>
                     <th style="width:25%">남은 날짜</th>
                 </tr>
             </thead>
@@ -115,11 +116,9 @@
             <div style="background:#fff9db; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #ffe066;">
                 <h3 style="margin:0 0 5px 0; color:#856404;">✏️ 등산 기록 수정/삭제</h3>
                 <p style="font-size:12px; color:#666; margin-bottom:10px;">회원을 선택하고 날짜를 클릭하여 수정하거나 삭제하세요.</p>
-                
                 <select id="editMemberSelect" onchange="renderHikeGrid(this.value)">
                     <option value="">기록을 확인할 회원 선택</option>
                 </select>
-                
                 <div id="hikeGrid" class="hike-grid-container" style="display:none;"></div>
             </div>
 
@@ -133,7 +132,7 @@
 </div>
 
 <script>
-    // ⚠️ 본인의 API URL을 정확히 입력해주세요
+    // ⚠️ 본인의 API URL로 설정 확인 (이전과 동일하면 수정 불필요)
     const API_URL = "https://script.google.com/macros/s/AKfycbySsFZxHczWCZUQvm17BL99EIK6gTHDW0kcz8ej50AOd9H7iG8ZKRAw9dPVTaV0TuAz/exec"; 
     const ADMIN_PASSWORD = "1229"; 
 
@@ -155,67 +154,50 @@
             
             initQuarterSelect();
             updateMemberDropdowns();
-            renderUI();
+            renderUI(); // 랭킹 적용된 UI 렌더링
             
             document.getElementById('loader').style.display = 'none';
             document.getElementById('mainTable').style.display = 'table';
             
-            // 만약 수정/삭제 그리드가 열려있다면 갱신
             const currentEditMember = document.getElementById('editMemberSelect').value;
             if(currentEditMember) renderHikeGrid(currentEditMember);
 
-        } catch (e) {
-            console.error(e);
-        }
+        } catch (e) { console.error(e); }
     }
 
     async function handleApi(action, extraData = {}) {
         let payload = { action: action, ...extraData };
         
-        // 1. 회원 추가
         if (action === 'addMember') {
             const name = document.getElementById('mName').value;
             const date = document.getElementById('mDate').value;
             if(!name || !date) return alert("정보를 입력하세요.");
             payload = { ...payload, id: Date.now(), name: name, joinDate: date };
         } 
-        // 2. 기록 추가
         else if (action === 'addHike') {
             const mId = document.getElementById('mSelect').value;
             const date = document.getElementById('hDate').value;
             if(!mId || !date) return alert("정보를 입력하세요.");
             payload = { ...payload, memberId: mId, date: date };
         }
-        // 3. 회원 삭제
         else if (action === 'deleteMember') {
             const mId = document.getElementById('dSelect').value;
             if(!mId || !confirm("정말 삭제하시겠습니까?")) return;
             payload = { ...payload, id: mId };
         }
-        // 4. 기록 수정/삭제 (extraData로 넘어옴) -> 별도 처리 필요 없음
 
-        // 로딩 표시
         const btns = document.querySelectorAll('button');
         btns.forEach(b => b.disabled = true);
         
         try {
             await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
             alert("완료되었습니다.");
-            
-            // 입력창 초기화
             if (action === 'addMember') document.getElementById('mName').value = "";
-            
-            // 데이터 갱신
             await loadData(); 
-        } catch (e) { 
-            alert("오류 발생: 스크립트 배포 버전을 확인하세요."); 
-        } finally { 
-            btns.forEach(b => b.disabled = false); 
-        }
+        } catch (e) { alert("오류 발생"); } 
+        finally { btns.forEach(b => b.disabled = false); }
     }
 
-    // --- [NEW] 그리드 렌더링 함수 ---
-   // --- [수정된] 그리드 렌더링 함수 ---
     function renderHikeGrid(memberId) {
         const grid = document.getElementById('hikeGrid');
         if (!memberId) {
@@ -227,7 +209,6 @@
             .filter(h => String(h.memberId) === String(memberId))
             .map(h => {
                 let d = new Date(h.date);
-                // 날짜 인식 보정 (점 포함 형식 등)
                 if(isNaN(d.getTime())) {
                     let str = String(h.date).replace(/\./g, '-').replace(/\s/g, '');
                     d = new Date(str);
@@ -251,27 +232,25 @@
             const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
             const dd = String(dateObj.getDate()).padStart(2, '0');
             
-            const dateStr = `${yy}.${mm}.${dd}`; // 화면 표시용 (25.12.30)
-            const fullDateStr = `${dateObj.getFullYear()}-${mm}-${dd}`; // 서버 전송용 (2025-12-30)
+            const dateStr = `${yy}.${mm}.${dd}`; 
+            const fullDateStr = `${dateObj.getFullYear()}-${mm}-${dd}`; 
 
             const item = document.createElement('div');
             item.className = 'hike-item';
             item.innerText = dateStr;
             item.onclick = () => {
-                const choice = prompt(`[${dateStr}] 기록 선택\n\n1. 수정: 새로운 날짜 입력 (예: 2025-01-01)\n2. 삭제: "삭제" 입력`, fullDateStr);
-                
+                const choice = prompt(`[${dateStr}] 기록 선택\n\n1. 수정: 날짜 입력 (YYYY-MM-DD)\n2. 삭제: "삭제" 입력`, fullDateStr);
                 if (choice === null) return;
                 
                 if (choice.trim() === "삭제") {
-                    if(confirm("정말 이 기록을 삭제하시겠습니까?")) {
+                    if(confirm("삭제하시겠습니까?")) {
                         handleApi('deleteHike', { memberId: memberId, date: fullDateStr });
                     }
                 } else {
-                    // 날짜 형식 유효성 검사
                     if(choice.match(/^\d{4}-\d{2}-\d{2}$/)) {
                         handleApi('updateHike', { memberId: memberId, oldDate: fullDateStr, newDate: choice });
                     } else {
-                        alert("날짜 형식이 올바르지 않습니다. (YYYY-MM-DD)");
+                        alert("형식 오류 (YYYY-MM-DD)");
                     }
                 }
             };
@@ -279,27 +258,54 @@
         });
     }
 
+    // 💡 [NEW] 랭킹 및 UI 렌더링 함수
     function renderUI() {
         const targetQ = document.getElementById('qSelect').value;
         const tbody = document.getElementById('memberList');
         tbody.innerHTML = "";
 
+        // 1. 순위 산정 로직
+        // 먼저 각 회원의 이번 분기 횟수를 계산
+        let memberCounts = db.members.map(m => {
+            const qCount = db.hikes.filter(h => String(h.memberId) === String(m.id) && getQuarter(h.date) === targetQ).length;
+            return { id: m.id, count: qCount };
+        });
+
+        // 횟수 기준 내림차순 정렬 (0회 제외)
+        const activeCounts = memberCounts.filter(m => m.count > 0).map(m => m.count).sort((a, b) => b - a);
+        // 중복 제거하여 1, 2, 3등 점수 확정 (예: 10회, 8회, 5회)
+        const uniqueCounts = [...new Set(activeCounts)];
+
+        // 순위 맵 생성
+        let rankMap = {};
+        memberCounts.forEach(m => {
+            if(m.count === 0) return; // 0회는 순위 없음
+            if(m.count === uniqueCounts[0]) rankMap[m.id] = '<span class="rank-badge rank-1">🥇산신령</span>';
+            else if(m.count === uniqueCounts[1]) rankMap[m.id] = '<span class="rank-badge rank-2">🥈심마니</span>';
+            else if(m.count === uniqueCounts[2]) rankMap[m.id] = '<span class="rank-badge rank-3">🥉나무꾼</span>';
+        });
+
+        // 2. 테이블 그리기
         db.members.forEach(m => {
             const totalHikes = db.hikes.filter(h => String(h.memberId) === String(m.id));
             const total = totalHikes.length;
-            const qCount = totalHikes.filter(h => getQuarter(h.date) === targetQ).length;
+            
+            // 해당 회원의 이번 분기 횟수 다시 찾기 (위에서 계산했지만 편의상)
+            const qCount = memberCounts.find(x => x.id === m.id).count;
+            
             const dDay = calculateDDay(m);
             const dDayClass = dDay <= 7 ? 'd-day-urgent' : '';
             const dDayText = dDay >= 0 ? `D-${dDay}` : `D+${Math.abs(dDay)} (경과)`;
 
-            // 요청: 레벨 0일 때 공백 처리
             let badgeHtml = "";
             let levelText = "";
-            
             if (total > 0) {
                 badgeHtml = `<span class="level-badge">${getLevel(total)}</span>`;
                 levelText = `<span class="level-text">Lv ${total}</span>`;
             }
+
+            // 순위 칭호 가져오기 (없으면 빈칸)
+            const rankHtml = rankMap[m.id] || "";
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -308,14 +314,15 @@
                     ${badgeHtml}
                     ${levelText}
                 </td>
-                <td style="font-weight:bold;">${qCount}회</td>
+                <td style="font-weight:bold;">
+                    ${rankHtml} ${qCount}회
+                </td>
                 <td class="${dDayClass}">${dDayText}</td>
             `;
             tbody.appendChild(tr);
         });
     }
 
-    // --- 기존 로직들 ---
     function getLevel(n) {
         if (n >= 1000) return '🫟미지의물질';
         if (n >= 500) return '💠 초신성';
@@ -401,7 +408,7 @@
     function updateMemberDropdowns() {
         const mSelect = document.getElementById('mSelect');
         const dSelect = document.getElementById('dSelect');
-        const eSelect = document.getElementById('editMemberSelect'); // [NEW] 수정용 드롭다운
+        const eSelect = document.getElementById('editMemberSelect');
         
         const opts = '<option value="">회원 선택</option>';
         mSelect.innerHTML = opts;
