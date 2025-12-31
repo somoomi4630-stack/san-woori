@@ -20,6 +20,7 @@
         .level-badge { background: #e7f3ff; color: #1877f2; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; white-space: nowrap; }
         .level-text { font-size: 0.85em; color: #666; margin-top: 4px; display: block; }
         
+        /* 랭킹 뱃지 스타일 */
         .rank-badge { display: block; font-size: 0.85em; font-weight: bold; margin-bottom: 4px; }
         .rank-1 { color: #d4af37; text-shadow: 0 0 1px rgba(212, 175, 55, 0.5); } 
         .rank-2 { color: #7f8c8d; } 
@@ -155,6 +156,7 @@
             document.getElementById('loader').style.display = 'none';
             document.getElementById('mainTable').style.display = 'table';
             
+            // 데이터 로드 후, 만약 회원이 선택되어 있다면 그리드 다시 그림
             const currentEditMember = document.getElementById('editMemberSelect').value;
             if(currentEditMember) renderHikeGrid(currentEditMember);
 
@@ -188,7 +190,16 @@
         try {
             await fetch(API_URL, { method: 'POST', body: JSON.stringify(payload) });
             alert("완료되었습니다.");
+            
             if (action === 'addMember') document.getElementById('mName').value = "";
+
+            // [추가된 부분] 수정/삭제 후 초기화면으로 복귀 (선택해제 및 그리드 숨김)
+            if (action === 'updateHike' || action === 'deleteHike') {
+                document.getElementById('editMemberSelect').value = ""; // 드롭박스 초기화
+                document.getElementById('hikeGrid').innerHTML = "";     // 그리드 내용 비움
+                document.getElementById('hikeGrid').style.display = "none"; // 그리드 숨김
+            }
+
             await loadData(); 
         } catch (e) { alert("오류 발생"); } 
         finally { btns.forEach(b => b.disabled = false); }
@@ -254,46 +265,38 @@
         });
     }
 
-    // [수정된 부분] 랭킹 및 UI 렌더링 함수 ("오즈" 제외 로직 적용)
+    // 랭킹 UI ("오즈" 제외 로직 유지)
     function renderUI() {
         const targetQ = document.getElementById('qSelect').value;
         const tbody = document.getElementById('memberList');
         tbody.innerHTML = "";
 
-        // 1. 순위 산정 로직
         let memberCounts = db.members.map(m => {
             const qCount = db.hikes.filter(h => String(h.memberId) === String(m.id) && getQuarter(h.date) === targetQ).length;
-            return { id: m.id, count: qCount, name: m.name }; // 이름 추가
+            return { id: m.id, count: qCount, name: m.name }; 
         });
 
-        // 횟수 기준 내림차순 정렬 
-        // 조건: 0회 이상 AND 이름이 "오즈"가 아닌 사람만 순위 경쟁에 포함
         const activeCounts = memberCounts
             .filter(m => m.count > 0 && m.name !== "오즈")
             .map(m => m.count)
             .sort((a, b) => b - a);
             
-        // 중복 점수 제거하여 1, 2, 3등 점수 확정
         const uniqueCounts = [...new Set(activeCounts)];
 
-        // 순위 맵 생성
         let rankMap = {};
         memberCounts.forEach(m => {
             if(m.count === 0) return; 
-            if(m.name === "오즈") return; // "오즈"는 뱃지 절대 지급 안 함
+            if(m.name === "오즈") return;
 
             if(m.count === uniqueCounts[0]) rankMap[m.id] = '<span class="rank-badge rank-1">🥇산신령</span>';
             else if(m.count === uniqueCounts[1]) rankMap[m.id] = '<span class="rank-badge rank-2">🥈심마니</span>';
             else if(m.count === uniqueCounts[2]) rankMap[m.id] = '<span class="rank-badge rank-3">🥉나무꾼</span>';
         });
 
-        // 2. 테이블 그리기
         db.members.forEach(m => {
             const totalHikes = db.hikes.filter(h => String(h.memberId) === String(m.id));
             const total = totalHikes.length;
-            
             const qCount = memberCounts.find(x => x.id === m.id).count;
-            
             const dDay = calculateDDay(m);
             const dDayClass = dDay <= 7 ? 'd-day-urgent' : '';
             const dDayText = dDay >= 0 ? `D-${dDay}` : `D+${Math.abs(dDay)} (경과)`;
