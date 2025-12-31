@@ -13,20 +13,17 @@
         .content { display: none; padding: 10px; }
         .content.active { display: block; }
         
-        /* 테이블 스타일 */
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
         th, td { border-bottom: 1px solid #ddd; padding: 12px; text-align: center; vertical-align: middle; }
         th { background: #f8f9fa; color: #333; font-weight: bold; }
         
-        /* 뱃지 및 레벨 스타일 */
         .level-badge { background: #e7f3ff; color: #1877f2; padding: 4px 10px; border-radius: 12px; font-size: 0.85em; font-weight: bold; white-space: nowrap; }
         .level-text { font-size: 0.85em; color: #666; margin-top: 4px; display: block; }
         
-        /* [NEW] 순위 뱃지 스타일 */
         .rank-badge { display: block; font-size: 0.85em; font-weight: bold; margin-bottom: 4px; }
-        .rank-1 { color: #d4af37; text-shadow: 0 0 1px rgba(212, 175, 55, 0.5); } /* 금색 */
-        .rank-2 { color: #7f8c8d; } /* 은색 */
-        .rank-3 { color: #cd7f32; } /* 동색 */
+        .rank-1 { color: #d4af37; text-shadow: 0 0 1px rgba(212, 175, 55, 0.5); } 
+        .rank-2 { color: #7f8c8d; } 
+        .rank-3 { color: #cd7f32; } 
 
         .admin-lock { text-align: center; padding: 50px; border: 1px dashed #ccc; border-radius: 10px; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
@@ -34,7 +31,6 @@
         .d-day-urgent { color: #e74c3c; font-weight: bold; }
         .loading-text { text-align: center; color: #666; padding: 20px; }
 
-        /* 등산 기록 수정용 그리드 스타일 */
         .hike-grid-container {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -132,7 +128,7 @@
 </div>
 
 <script>
-    // ⚠️ 본인의 API URL로 설정 확인 (이전과 동일하면 수정 불필요)
+    // ⚠️ 본인의 API URL로 설정 확인
     const API_URL = "https://script.google.com/macros/s/AKfycbySsFZxHczWCZUQvm17BL99EIK6gTHDW0kcz8ej50AOd9H7iG8ZKRAw9dPVTaV0TuAz/exec"; 
     const ADMIN_PASSWORD = "1229"; 
 
@@ -154,7 +150,7 @@
             
             initQuarterSelect();
             updateMemberDropdowns();
-            renderUI(); // 랭킹 적용된 UI 렌더링
+            renderUI();
             
             document.getElementById('loader').style.display = 'none';
             document.getElementById('mainTable').style.display = 'table';
@@ -258,28 +254,34 @@
         });
     }
 
-    // 💡 [NEW] 랭킹 및 UI 렌더링 함수
+    // [수정된 부분] 랭킹 및 UI 렌더링 함수 ("오즈" 제외 로직 적용)
     function renderUI() {
         const targetQ = document.getElementById('qSelect').value;
         const tbody = document.getElementById('memberList');
         tbody.innerHTML = "";
 
         // 1. 순위 산정 로직
-        // 먼저 각 회원의 이번 분기 횟수를 계산
         let memberCounts = db.members.map(m => {
             const qCount = db.hikes.filter(h => String(h.memberId) === String(m.id) && getQuarter(h.date) === targetQ).length;
-            return { id: m.id, count: qCount };
+            return { id: m.id, count: qCount, name: m.name }; // 이름 추가
         });
 
-        // 횟수 기준 내림차순 정렬 (0회 제외)
-        const activeCounts = memberCounts.filter(m => m.count > 0).map(m => m.count).sort((a, b) => b - a);
-        // 중복 제거하여 1, 2, 3등 점수 확정 (예: 10회, 8회, 5회)
+        // 횟수 기준 내림차순 정렬 
+        // 조건: 0회 이상 AND 이름이 "오즈"가 아닌 사람만 순위 경쟁에 포함
+        const activeCounts = memberCounts
+            .filter(m => m.count > 0 && m.name !== "오즈")
+            .map(m => m.count)
+            .sort((a, b) => b - a);
+            
+        // 중복 점수 제거하여 1, 2, 3등 점수 확정
         const uniqueCounts = [...new Set(activeCounts)];
 
         // 순위 맵 생성
         let rankMap = {};
         memberCounts.forEach(m => {
-            if(m.count === 0) return; // 0회는 순위 없음
+            if(m.count === 0) return; 
+            if(m.name === "오즈") return; // "오즈"는 뱃지 절대 지급 안 함
+
             if(m.count === uniqueCounts[0]) rankMap[m.id] = '<span class="rank-badge rank-1">🥇산신령</span>';
             else if(m.count === uniqueCounts[1]) rankMap[m.id] = '<span class="rank-badge rank-2">🥈심마니</span>';
             else if(m.count === uniqueCounts[2]) rankMap[m.id] = '<span class="rank-badge rank-3">🥉나무꾼</span>';
@@ -290,7 +292,6 @@
             const totalHikes = db.hikes.filter(h => String(h.memberId) === String(m.id));
             const total = totalHikes.length;
             
-            // 해당 회원의 이번 분기 횟수 다시 찾기 (위에서 계산했지만 편의상)
             const qCount = memberCounts.find(x => x.id === m.id).count;
             
             const dDay = calculateDDay(m);
@@ -304,7 +305,6 @@
                 levelText = `<span class="level-text">Lv ${total}</span>`;
             }
 
-            // 순위 칭호 가져오기 (없으면 빈칸)
             const rankHtml = rankMap[m.id] || "";
 
             const tr = document.createElement('tr');
@@ -315,7 +315,8 @@
                     ${levelText}
                 </td>
                 <td style="font-weight:bold;">
-                    ${rankHtml} ${qCount}회
+                    ${rankHtml}
+                    ${qCount}회
                 </td>
                 <td class="${dDayClass}">${dDayText}</td>
             `;
